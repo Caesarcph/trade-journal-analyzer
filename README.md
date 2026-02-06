@@ -290,7 +290,7 @@ dashboard:
 - [x] Trade data model and database
 - [ ] MT5/MT4 importers
 - [ ] CSV importer with smart mapping
-- [ ] Basic statistics calculator
+- [x] Basic statistics calculator
 
 ### Week 2: Analysis Engine
 - [ ] Time-based analysis

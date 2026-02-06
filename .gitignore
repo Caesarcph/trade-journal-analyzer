@@ -5,3 +5,11 @@ venv/
 node_modules/
 .DS_Store
 *.db
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.log
+data/
+temp/
+coverage/
+.pytest_cache/
