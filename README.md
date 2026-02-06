@@ -287,7 +287,7 @@ dashboard:
 ## 🛠️ Development Roadmap
 
 ### Week 1: Core Infrastructure
-- [ ] Trade data model and database
+- [x] Trade data model and database
 - [ ] MT5/MT4 importers
 - [ ] CSV importer with smart mapping
 - [ ] Basic statistics calculator
