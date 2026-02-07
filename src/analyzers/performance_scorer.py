@@ -48,16 +48,45 @@ class TradeGradeLetter(Enum):
 
 
 class PerformanceScorer:
-    """
-    Calculates performance scores for trading performance evaluation.
+    """Calculates performance scores for trading performance evaluation.
+
     Provides both overall portfolio scores and individual trade grading.
     """
-    
+
     def __init__(self, trades: List[Trade]):
         self.trades = trades
         self.basic_stats = BasicStats(trades)
         self.stats_result = self.basic_stats.get_stats()
-    
+
+    def grade_distribution(self, grades: Optional[List[TradeGrade]] = None) -> Dict[str, Dict[str, float]]:
+        """Return distribution of trade letter grades.
+
+        Returns a dict like:
+        {
+          "A": {"count": 3, "pct": 0.30},
+          ...
+        }
+
+        Notes:
+        - pct is in [0, 1]
+        - Missing grades are included with 0 count
+        """
+        grades = grades or self.grade_all_trades()
+        total = max(len(grades), 1)
+
+        counts: Dict[str, int] = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
+        for g in grades:
+            if g.grade in counts:
+                counts[g.grade] += 1
+            else:
+                # Unknown grades are ignored to keep schema stable
+                continue
+
+        return {
+            k: {"count": int(v), "pct": float(v) / float(total)}
+            for k, v in counts.items()
+        }
+
     def calculate_overall_score(self) -> PerformanceScore:
         """Calculate overall performance score based on multiple factors."""
         # Calculate component scores
@@ -350,7 +379,9 @@ class PerformanceScorer:
     def generate_performance_report(self) -> str:
         """Generate a comprehensive performance report."""
         overall_score = self.calculate_overall_score()
-        
+        trade_grades = self.grade_all_trades()
+        distribution = self.grade_distribution(trade_grades)
+
         report_lines = [
             "🏆 PERFORMANCE ANALYSIS REPORT",
             "=" * 50,
@@ -361,28 +392,35 @@ class PerformanceScorer:
             f"  Risk Management Score: {overall_score.risk_score}/100",
             f"  Profit Factor Score: {overall_score.profit_factor_score}/100",
             "",
+            "📈 TRADE GRADE DISTRIBUTION:",
+            "  A: {count} ({pct:.1%})".format(**distribution["A"]),
+            "  B: {count} ({pct:.1%})".format(**distribution["B"]),
+            "  C: {count} ({pct:.1%})".format(**distribution["C"]),
+            "  D: {count} ({pct:.1%})".format(**distribution["D"]),
+            "  F: {count} ({pct:.1%})".format(**distribution["F"]),
+            "",
             "✅ STRENGTHS:",
         ]
-        
+
         for strength in overall_score.strengths:
             report_lines.append(f"  • {strength}")
-        
+
         report_lines.extend([
             "",
             "⚠️  WEAKNESSES:",
         ])
-        
+
         for weakness in overall_score.weaknesses:
             report_lines.append(f"  • {weakness}")
-        
+
         report_lines.extend([
             "",
             "💡 RECOMMENDATIONS:",
         ])
-        
+
         for recommendation in overall_score.recommendations:
             report_lines.append(f"  • {recommendation}")
-        
+
         return "\n".join(report_lines)
 
 

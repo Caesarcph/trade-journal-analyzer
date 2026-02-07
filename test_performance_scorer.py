@@ -231,23 +231,45 @@ def test_score_calculation_methods():
     print("🧪 Testing individual score calculation methods...")
     trades = create_test_trades()
     scorer = PerformanceScorer(trades)
-    
+
     # Test win rate score
     win_rate_score = scorer._calculate_win_rate_score()
     print(f"✅ Win Rate Score: {win_rate_score}")
     assert 0 <= win_rate_score <= 100, f"Win rate score out of range: {win_rate_score}"
-    
+
     # Test risk score
     risk_score = scorer._calculate_risk_score()
     print(f"✅ Risk Score: {risk_score}")
     assert 0 <= risk_score <= 100, f"Risk score out of range: {risk_score}"
-    
+
     # Test profit factor score
     profit_factor_score = scorer._calculate_profit_factor_score()
     print(f"✅ Profit Factor Score: {profit_factor_score}")
     assert 0 <= profit_factor_score <= 100, f"Profit factor score out of range: {profit_factor_score}"
-    
+
     print("✅ Individual score calculation test passed!\n")
+
+
+def test_grade_distribution():
+    """Test grade distribution summary."""
+    print("🧪 Testing grade distribution...")
+    trades = create_test_trades()
+    scorer = PerformanceScorer(trades)
+
+    grades = scorer.grade_all_trades()
+    dist = scorer.grade_distribution(grades)
+
+    # Basic schema checks
+    for k in ["A", "B", "C", "D", "F"]:
+        assert k in dist, f"Missing grade key: {k}"
+        assert "count" in dist[k] and "pct" in dist[k], f"Missing fields for grade {k}"
+        assert dist[k]["count"] >= 0
+        assert 0.0 <= dist[k]["pct"] <= 1.0
+
+    total_count = sum(dist[k]["count"] for k in dist)
+    assert total_count == len(trades), f"Expected {len(trades)} total, got {total_count}"
+
+    print("✅ Grade distribution test passed!\n")
 
 
 def main():
@@ -262,7 +284,8 @@ def main():
         test_performance_report()
         test_letter_grade_conversion()
         test_score_calculation_methods()
-        
+        test_grade_distribution()
+
         # Test sample usage
         print("🧪 Testing create_sample_usage...")
         sample_report = create_sample_usage()
