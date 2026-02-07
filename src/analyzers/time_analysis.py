@@ -135,9 +135,8 @@ class TimeAnalysis:
         elif trade.profit < 0:
             self._month_stats[month]["losses"] += 1
         
-        # Determine session
-        session = self._get_session(close_time)
-        if session:
+        # Determine sessions (can include overlaps)
+        for session in self._get_sessions(close_time):
             self._session_stats[session]["trades"].append(trade)
             self._session_stats[session]["pnl"] += trade.profit
             if trade.profit > 0:
@@ -156,13 +155,17 @@ class TimeAnalysis:
                 self._period_stats[period]["losses"] += 1
     
     def _get_session(self, close_time: datetime) -> Optional[str]:
-        """Determine which trading session the time falls into."""
-        close_hour = close_time.time()
-        
+        """Determine primary trading session the time falls into.
+
+        Note: a time can belong to multiple sessions (e.g., overlaps). For full
+        membership (including overlaps), use `_get_sessions()`.
+        """
+        t = close_time.time()
+
         for session_name, (start_time, end_time) in self.SESSIONS.items():
-            if start_time <= close_hour < end_time:
+            if self._time_in_range(t, start_time, end_time):
                 return session_name
-        
+
         return None
     
     def _get_period(self, close_time: datetime) -> Optional[str]:
@@ -175,6 +178,22 @@ class TimeAnalysis:
         
         return None
     
+    def _time_in_range(self, t: time, start: time, end: time) -> bool:
+        """Check if time t is within [start, end) (supports ranges that cross midnight)."""
+        if start <= end:
+            return start <= t < end
+        # crosses midnight
+        return t >= start or t < end
+
+    def _get_sessions(self, close_time: datetime) -> List[str]:
+        """Return all sessions that the time falls into (including overlaps)."""
+        t = close_time.time()
+        sessions: List[str] = []
+        for session_name, (start_time, end_time) in self.SESSIONS.items():
+            if self._time_in_range(t, start_time, end_time):
+                sessions.append(session_name)
+        return sessions
+
     def _calculate_derived_stats(self):
         """Calculate win rates and other derived statistics."""
         # Process hour stats
@@ -473,64 +492,69 @@ class TimeAnalysis:
         return "\n".join(lines)
     
     def get_session_overlaps(self) -> List[Dict[str, Any]]:
+        """Analyze overlaps between trading sessions based on session time windows.
+
+        Implementation note:
+        - A trade time can belong to multiple sessions (e.g., London and New York).
+        - We compute overlaps by intersecting session windows and selecting trades
+          whose close_time falls inside that intersection.
         """
-        Calculate and analyze overlaps between different trading sessions.
-        This is particularly important for forex trading where session overlaps
-        (like London-New York overlap) often have higher volatility and better opportunities.
-        
-        Returns:
-            List of dictionaries with overlap analysis
-        """
-        overlaps = []
-        
-        # Define session pairs to check for overlaps
+        overlaps: List[Dict[str, Any]] = []
+
         session_pairs = [
             ("London", "New_York"),
             ("Asian", "London"),
-            ("London", "London_NY_Overlap"),
-            ("London_NY_Overlap", "New_York")
         ]
-        
+
         for session1, session2 in session_pairs:
-            # Get trades in each session
-            trades1 = self._session_stats[session1]["trades"]
-            trades2 = self._session_stats[session2]["trades"]
-            
-            # Find trades that occurred during both sessions (overlap)
-            overlap_trades = []
-            for trade in trades1:
-                if trade in trades2:
-                    overlap_trades.append(trade)
-            
-            if overlap_trades:
-                # Analyze overlap performance
-                total_pnl = Decimal("0.0")
-                wins = 0
-                losses = 0
-                
-                for trade in overlap_trades:
-                    total_pnl += trade.profit
-                    if trade.profit > 0:
-                        wins += 1
-                    elif trade.profit < 0:
-                        losses += 1
-                
-                total_trades = len(overlap_trades)
-                win_rate = wins / total_trades if total_trades > 0 else 0.0
-                avg_pnl = total_pnl / Decimal(str(total_trades)) if total_trades > 0 else Decimal("0.0")
-                
-                overlaps.append({
-                    "session_pair": f"{session1}-{session2}",
-                    "overlap_name": f"{session1}/{session2} Overlap",
-                    "total_trades": total_trades,
-                    "wins": wins,
-                    "losses": losses,
-                    "win_rate": win_rate,
-                    "total_pnl": float(total_pnl),
-                    "avg_pnl": float(avg_pnl),
-                    "trades": overlap_trades
-                })
-        
+            if session1 not in self.SESSIONS or session2 not in self.SESSIONS:
+                continue
+
+            s1_start, s1_end = self.SESSIONS[session1]
+            s2_start, s2_end = self.SESSIONS[session2]
+
+            # Complex midnight-wrapping overlap support can be added later.
+            if s1_start > s1_end or s2_start > s2_end:
+                continue
+
+            overlap_start = max(s1_start, s2_start)
+            overlap_end = min(s1_end, s2_end)
+
+            if overlap_start >= overlap_end:
+                continue
+
+            overlap_trades = [
+                t for t in self._closed_trades
+                if t.close_time and self._time_in_range(t.close_time.time(), overlap_start, overlap_end)
+            ]
+
+            if not overlap_trades:
+                continue
+
+            total_pnl = sum((t.profit for t in overlap_trades), Decimal("0.0"))
+            wins = sum(1 for t in overlap_trades if t.profit > 0)
+            losses = sum(1 for t in overlap_trades if t.profit < 0)
+            total_trades = len(overlap_trades)
+            win_rate = wins / total_trades if total_trades else 0.0
+            avg_pnl = (total_pnl / Decimal(str(total_trades))) if total_trades else Decimal("0.0")
+
+            overlaps.append({
+                "session_pair": f"{session1}-{session2}",
+                "overlap_name": f"{session1}/{session2} Overlap",
+                "overlap_window_utc": (
+                    overlap_start.isoformat(timespec='minutes'),
+                    overlap_end.isoformat(timespec='minutes'),
+                ),
+                "total_trades": total_trades,
+                "wins": wins,
+                "losses": losses,
+                "win_rate": win_rate,
+                "total_pnl": float(total_pnl),
+                "avg_pnl": float(avg_pnl),
+                "trades": overlap_trades,
+            })
+
+        overlaps.sort(key=lambda x: (x["total_trades"], x["win_rate"], x["avg_pnl"]), reverse=True)
         return overlaps
     
     def get_best_session_overlap(self) -> Optional[Dict[str, Any]]:
