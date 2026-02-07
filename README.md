@@ -271,7 +271,32 @@ worst_weekday = time_analyzer.get_worst_weekday()
 recommendations = time_analyzer.recommendations()
 # ["Focus on trading during 14:00 - 71.4% win rate across 7 trades",
 #  "Avoid trading during 10:00 - only 0.0% win rate",
-#  "Tuesday is your strongest day - schedule important trades then"]
+#  "Tuesday is your strongest day - schedule important trades then",
+#  "London/New_York Overlap shows excellent performance - capitalize on overlap volatility"]
+
+# Get session overlap analysis (new feature!)
+overlaps = time_analyzer.get_session_overlaps()
+# [
+#   {"session_pair": "London-New_York", "overlap_name": "London/New_York Overlap",
+#    "total_trades": — 15, "win_rate": 0.73, "avg_pnl": 45.20}
+# ]
+
+# Get volatility analysis by session
+volatility = time_analyzer.get_session_volatility_analysis()
+# {
+#   "London": {"total_trades": 45, "profit_range": (-50.0, 120.0),
+#              "profit_std": 35.20, "max_winning_streak": 5},
+#   "New_York": {"total_trades": 35, "profit_range": (-30.0,プ 85.0),
+#                "profit_std": 28.50, "max_winning_streak": 4}
+# }
+
+# Get time-based risk metrics
+risk_metrics = time_analyzer.get_time_based_risk_metrics()
+# {
+#   "overall": {"max_drawdown": 0.25, "sharpe_ratio": 1.85, "profit_factor": 2.10},
+#   "by_hour": {"14": {"risk_score": 25, "sharpe_ratio": 2.30}},
+#   "by_session": {"London": {"risk_score": 28, "profit_factor": 2.45}}
+# }
 
 # Get complete analysis summary
 print(time_analyzer.summary())
@@ -291,7 +316,10 @@ print(time_analyzer.summary())
 #  
 #  🌍 TRADING SESSIONS:
 #    London: 45 trades, Win Rate: 68.0%, Avg PnL: $42.30
-#    New_York: 35 trades, Win Rate: 61.0%, Avg PnL: $38.70"
+#    New_York: 35 trades, Win Rate: 61.0%, Avg PnL: $38.70
+#  
+#  🔀 SESSION OVERLAPS:
+#    London/New_York Overlap: 15 trades, Win Rate: 73.0%, Avg PnL: $45.20"
 ```
 
 ### AI-Powered Insights
