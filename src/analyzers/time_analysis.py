@@ -425,6 +425,232 @@ class TimeAnalysis:
             sessions=self.SESSIONS
         )
     
+    def get_seasonal_patterns(self) -> Dict[str, Any]:
+        """
+        Analyze seasonal patterns in trading performance.
+        Includes quarterly, monthly, and yearly patterns.
+        
+        Returns:
+            Dictionary with seasonal pattern analysis
+        """
+        seasonal_patterns = {
+            "quarterly": {},
+            "monthly": {},
+            "yearly": {},
+            "seasonal_cycles": []
+        }
+        
+        if not self._closed_trades:
+            return seasonal_patterns
+        
+        # Group trades by quarter
+        quarters = defaultdict(lambda: {"trades": [], "pnl": Decimal("0.0"), "wins": 0, "losses": 0})
+        for trade in self._closed_trades:
+            if trade.close_time:
+                quarter = (trade.close_time.month - 1) // 3 + 1
+                quarters[quarter]["trades"].append(trade)
+                quarters[quarter]["pnl"] += trade.profit
+                if trade.profit > 0:
+                    quarters[quarter]["wins"] += 1
+                elif trade.profit < 0:
+                    quarters[quarter]["losses"] += 1
+        
+        # Calculate quarterly statistics
+        for quarter, stats in quarters.items():
+            total_trades = len(stats["trades"])
+            if total_trades > 0:
+                seasonal_patterns["quarterly"][quarter] = {
+                    "name": f"Q{quarter}",
+                    "total_trades": total_trades,
+                    "wins": stats["wins"],
+                    "losses": stats["losses"],
+                    "win_rate": stats["wins"] / total_trades if total_trades > 0 else 0.0,
+                    "total_pnl": float(stats["pnl"]),
+                    "avg_pnl": float(stats["pnl"] / Decimal(str(total_trades))) if total_trades > 0 else 0.0
+                }
+        
+        # Use existing monthly stats
+        for month, stats in self._month_stats.items():
+            total_trades = len(stats["trades"])
+            if total_trades > 0:
+                seasonal_patterns["monthly"][month] = {
+                    "name": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month-1],
+                    "total_trades": stats.get("total_trades", 0),
+                    "wins": stats.get("wins", 0),
+                    "losses": stats.get("losses", 0),
+                    "win_rate": stats.get("win_rate", 0.0),
+                    "total_pnl": float(stats.get("pnl", Decimal("0.0"))),
+                    "avg_pnl": float(stats.get("avg_pnl", Decimal("0.0")))
+                }
+        
+        # Group trades by year
+        years = defaultdict(lambda: {"trades": [], "pnl": Decimal("0.0"), "wins": 0, "losses": 0})
+        for trade in self._closed_trades:
+            if trade.close_time:
+                year = trade.close_time.year
+                years[year]["trades"].append(trade)
+                years[year]["pnl"] += trade.profit
+                if trade.profit > 0:
+                    years[year]["wins"] += 1
+                elif trade.profit < 0:
+                    years[year]["losses"] += 1
+        
+        # Calculate yearly statistics
+        for year, stats in years.items():
+            total_trades = len(stats["trades"])
+            if total_trades > 0:
+                seasonal_patterns["yearly"][year] = {
+                    "year": year,
+                    "total_trades": total_trades,
+                    "wins": stats["wins"],
+                    "losses": stats["losses"],
+                    "win_rate": stats["wins"] / total_trades if total_trades > 0 else 0.0,
+                    "total_pnl": float(stats["pnl"]),
+                    "avg_pnl": float(stats["pnl"] / Decimal(str(total_trades))) if total_trades > 0 else 0.0
+                }
+        
+        # Identify seasonal cycles (patterns across multiple years)
+        if len(years) >= 2:
+            seasonal_patterns["seasonal_cycles"] = self._identify_seasonal_cycles(seasonal_patterns)
+        
+        return seasonal_patterns
+    
+    def _identify_seasonal_cycles(self, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Identify recurring seasonal patterns across years."""
+        cycles = []
+        
+        # Check for consistent monthly patterns across years
+        if patterns.get("monthly"):
+            month_data = {}
+            for month, stats in patterns["monthly"].items():
+                if stats["total_trades"] >= 5:  # Minimum trades for significance
+                    month_data[month] = stats
+            
+            # Identify months with consistently high/low performance
+            if len(month_data) >= 3:
+                # Sort months by win rate
+                sorted_months = sorted(month_data.items(), key=lambda x: x[1]["win_rate"], reverse=True)
+                
+                if sorted_months:
+                    best_month = sorted_months[0]
+                    worst_month = sorted_months[-1]
+                    
+                    if best_month[1]["win_rate"] >= 0.6:
+                        cycles.append({
+                            "type": "best_month",
+                            "month": best_month[0],
+                            "name": best_month[1]["name"],
+                            "win_rate": best_month[1]["win_rate"],
+                            "avg_pnl": best_month[1]["avg_pnl"],
+                            "description": f"Consistently strong performance in {best_month[1]['name']}"
+                        })
+                    
+                    if worst_month[1]["win_rate"] <= 0.4:
+                        cycles.append({
+                            "type": "worst_month",
+                            "month": worst_month[0],
+                            "name": worst_month[1]["name"],
+                            "win_rate": worst_month[1]["win_rate"],
+                            "avg_pnl": worst_month[1]["avg_pnl"],
+                            "description": f"Consistently weak performance in {worst_month[1]['name']}"
+                        })
+        
+        # Check for quarterly patterns
+        if patterns.get("quarterly"):
+            quarter_perf = []
+            for quarter, stats in patterns["quarterly"].items():
+                if stats["total_trades"] >= 10:
+                    quarter_perf.append((quarter, stats))
+            
+            if len(quarter_perf) >= 3:
+                quarter_perf.sort(key=lambda x: x[1]["win_rate"], reverse=True)
+                
+                best_quarter = quarter_perf[0]
+                worst_quarter = quarter_perf[-1]
+                
+                if best_quarter[1]["win_rate"] >= 0.55:
+                    cycles.append({
+                        "type": "best_quarter",
+                        "quarter": best_quarter[0],
+                        "name": best_quarter[1]["name"],
+                        "win_rate": best_quarter[1]["win_rate"],
+                        "avg_pnl": best_quarter[1]["avg_pnl"],
+                        "description": f"Strongest performance in {best_quarter[1]['name']}"
+                    })
+                
+                if worst_quarter[1]["win_rate"] <= 0.45:
+                    cycles.append({
+                        "type": "worst_quarter",
+                        "quarter": worst_quarter[0],
+                        "name": worst_quarter[1]["name"],
+                        "win_rate": worst_quarter[1]["win_rate"],
+                        "avg_pnl": worst_quarter[1]["avg_pnl"],
+                        "description": f"Weakest performance in {worst_quarter[1]['name']}"
+                    })
+        
+        return cycles
+    
+    def get_seasonal_recommendations(self) -> List[str]:
+        """Generate seasonal trading recommendations."""
+        recs = []
+        patterns = self.get_seasonal_patterns()
+        
+        if not patterns.get("monthly"):
+            return ["Insufficient data for seasonal recommendations."]
+        
+        # Monthly recommendations
+        best_month = None
+        best_win_rate = 0.0
+        worst_month = None
+        worst_win_rate = 1.0
+        
+        for month, stats in patterns["monthly"].items():
+            if stats["total_trades"] >= 5:
+                if stats["win_rate"] > best_win_rate:
+                    best_win_rate = stats["win_rate"]
+                    best_month = stats
+                if stats["win_rate"] < worst_win_rate:
+                    worst_win_rate = stats["win_rate"]
+                    worst_month = stats
+        
+        if best_month and best_win_rate >= 0.6:
+            recs.append(f"Consider increasing trading activity in {best_month['name']} - {best_win_rate:.1%} win rate.")
+        
+        if worst_month and worst_win_rate <= 0.4:
+            recs.append(f"Reduce trading activity or use smaller position sizes in {worst_month['name']} - only {worst_win_rate:.1%} win rate.")
+        
+        # Quarterly recommendations
+        if patterns.get("quarterly"):
+            best_quarter = None
+            best_q_win_rate = 0.0
+            
+            for quarter, stats in patterns["quarterly"].items():
+                if stats["total_trades"] >= 10 and stats["win_rate"] > best_q_win_rate:
+                    best_q_win_rate = stats["win_rate"]
+                    best_quarter = stats
+            
+            if best_quarter and best_q_win_rate >= 0.55:
+                recs.append(f"Your trading edge is strongest in {best_quarter['name']} - focus on building capital during this period.")
+        
+        # Year-over-year improvement
+        if patterns.get("yearly") and len(patterns["yearly"]) >= 2:
+            years = list(patterns["yearly"].values())
+            years.sort(key=lambda x: x["year"])
+            
+            if len(years) >= 2:
+                latest_year = years[-1]
+                previous_year = years[-2]
+                
+                if latest_year["total_trades"] >= 10 and previous_year["total_trades"] >= 10:
+                    improvement = latest_year["win_rate"] - previous_year["win_rate"]
+                    if improvement >= 0.1:
+                        recs.append(f"Significant improvement from {previous_year['year']} to {latest_year['year']} (+{improvement:.1%} win rate) - continue your current strategies.")
+                    elif improvement <= -0.1:
+                        recs.append(f"Performance declined from {previous_year['year']} to {latest_year['year']} ({improvement:+.1%} win rate) - review and adjust strategies.")
+        
+        return recs if recs else ["No clear seasonal patterns detected - maintain consistent trading schedule."]
+    
     def summary(self) -> str:
         """Return human-readable summary of time-based analysis."""
         if not self._closed_trades:
@@ -488,6 +714,36 @@ class TimeAnalysis:
                     win_rate = stats["win_rate"]
                     avg_pnl = stats["avg_pnl"]
                     lines.append(f"  {period}: {stats['total_trades']} trades, Win Rate: {win_rate:.1%}, Avg PnL: ${avg_pnl:.2f}")
+        
+        # Seasonal patterns (new feature)
+        seasonal_patterns = self.get_seasonal_patterns()
+        if seasonal_patterns.get("monthly"):
+            lines.append("\n📊 SEASONAL PATTERNS:")
+            
+            # Show best and worst months
+            months_data = []
+            for month, stats in seasonal_patterns["monthly"].items():
+                if stats["total_trades"] >= 3:
+                    months_data.append((stats["name"], stats["win_rate"], stats["avg_pnl"]))
+            
+            if months_data:
+                months_data.sort(key=lambda x: x[1], reverse=True)
+                
+                # Show top 2 and bottom 2 months
+                if len(months_data) >= 4:
+                    lines.append("  Best Months:")
+                    for name, win_rate, avg_pnl in months_data[:2]:
+                        lines.append(f"    {name}: {win_rate:.1%} win rate, ${avg_pnl:.2f} avg PnL")
+                    
+                    lines.append("  Worst Months:")
+                    for name, win_rate, avg_pnl in months_data[-2:]:
+                        lines.append(f"    {name}: {win_rate:.1%} win rate, ${avg_pnl:.2f} avg PnL")
+        
+        # Seasonal cycles
+        if seasonal_patterns.get("seasonal_cycles"):
+            lines.append("\n🔁 SEASONAL CYCLES:")
+            for cycle in seasonal_patterns["seasonal_cycles"]:
+                lines.append(f"  {cycle['description']} - {cycle['win_rate']:.1%} win rate")
         
         return "\n".join(lines)
     
@@ -1005,6 +1261,33 @@ if __name__ == "__main__":
         hour_risks.sort(key=lambda x: x[1], reverse=True)
         for hour, risk_score in hour_risks[:3]:
             print(f"    {hour:02d}:00 - Risk Score: {risk_score:.0f}/100")
+    
+    # Test new seasonal patterns feature
+    print("\n📅 SEASONAL PATTERNS ANALYSIS:")
+    seasonal_patterns = analyzer.get_seasonal_patterns()
+    
+    if seasonal_patterns["monthly"]:
+        print("Monthly Performance:")
+        for month, stats in seasonal_patterns["monthly"].items():
+            if stats["total_trades"] > 0:
+                print(f"  {stats['name']}: {stats['total_trades']} trades, Win Rate: {stats['win_rate']:.1%}, Avg PnL: ${stats['avg_pnl']:.2f}")
+    
+    if seasonal_patterns["quarterly"]:
+        print("\nQuarterly Performance:")
+        for quarter, stats in seasonal_patterns["quarterly"].items():
+            if stats["total_trades"] > 0:
+                print(f"  {stats['name']}: {stats['total_trades']} trades, Win Rate: {stats['win_rate']:.1%}, Avg PnL: ${stats['avg_pnl']:.2f}")
+    
+    if seasonal_patterns["yearly"]:
+        print("\nYearly Performance:")
+        for year, stats in seasonal_patterns["yearly"].items():
+            if stats["total_trades"] > 0:
+                print(f"  {year}: {stats['total_trades']} trades, Win Rate: {stats['win_rate']:.1%}, Avg PnL: ${stats['avg_pnl']:.2f}")
+    
+    # Test seasonal recommendations
+    print("\n🍂 SEASONAL RECOMMENDATIONS:")
+    for rec in analyzer.get_seasonal_recommendations():
+        print(f"  • {rec}")
     
     print("\n" + "=" * 60)
     print("✅ All new time analysis features tested successfully!")
