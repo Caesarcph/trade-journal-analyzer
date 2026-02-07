@@ -227,6 +227,73 @@ emotional = patterns.detect_emotional_trading()
 # }
 ```
 
+### Time-Based Analysis
+
+```python
+from analyzers import TimeAnalysis
+
+time_analyzer = TimeAnalysis(trades)
+
+# Performance by day of week
+day_perf = time_analyzer.by_day_of_week()
+# {'Monday': {'win_rate': 0.62, 'pnl': 2340, 'avg_pnl': 58.5}, ...}
+
+# Performance by hour
+hour_perf = time_analyzer.by_hour()
+# Best trading hours identified
+
+# Performance by trading session
+session_perf = time_analyzer.by_session()
+# {'Asian': {'win_rate': 0.55, 'total_trades': 20, 'avg_pnl': 25.5},
+#  'London': {'win_rate': 0.68, 'total_trades': 45, 'avg_pnl': 42.3},
+#  'New_York': {'win_rate': 0.61, 'total_trades': 35, 'avg_pnl': 38.7},
+#  'London_NY_Overlap': {'win_rate': 0.72, 'total_trades': 28, 'avg_pnl': 51.2}}
+
+# Performance by time period
+period_perf = time_analyzer.by_period()
+# {'pre_market': {...}, 'market_open': {...}, 'midday': {...}, ...}
+
+# Get peak performance hours
+peak_hours = time_analyzer.get_peak_hours(limit=5)
+# [{'hour': 14, 'win_rate': 0.71, 'avg_pnl': 27.14, 'total_trades': 7}, ...]
+
+# Get worst performing hours
+worst_hours = time_analyzer.get_worst_hours(limit=3)
+# [{'hour': 10, 'win_rate': 0.0, 'avg_pnl': -30.0, 'total_trades': 1}, ...]
+
+# Get best/worst weekdays
+best_weekday = time_analyzer.get_best_weekday()
+# {'weekday': 1, 'name': 'Tuesday', 'win_rate': 0.68, 'avg_pnl': 42.5, ...}
+worst_weekday = time_analyzer.get_worst_weekday()
+# {'weekday': 4, 'name': 'Friday', 'win_rate': 0.45, 'avg_pnl': -12.3, ...}
+
+# Get recommendations based on time patterns
+recommendations = time_analyzer.recommendations()
+# ["Focus on trading during 14:00 - 71.4% win rate across 7 trades",
+#  "Avoid trading during 10:00 - only 0.0% win rate",
+#  "Tuesday is your strongest day - schedule important trades then"]
+
+# Get complete analysis summary
+print(time_analyzer.summary())
+# "⏰ TIME-BASED PATTERN ANALYSIS
+#  ==================================================
+#  Total Closed Trades Analyzed: 247
+#  
+#  🏆 BEST PERFORMING HOURS:
+#   14:00 - Win Rate: 71.4% | Avg PnL: $27.14
+#  
+#  ⚠️ WORST PERFORMING HOURS:
+#   10:00 - Win Rate: 0.0% | Avg PnL: $-30.00
+#  
+#  📅 DAY OF WEEK PERFORMANCE:
+#    Best: Tuesday - Win Rate: 68.0% | Avg PnL: $42.50
+#    Worst: Friday - Win Rate: 45.0% | Avg PnL: $-12.30
+#  
+#  🌍 TRADING SESSIONS:
+#    London: 45 trades, Win Rate: 68.0%, Avg PnL: $42.30
+#    New_York: 35 trades, Win Rate: 61.0%, Avg PnL: $38.70"
+```
+
 ### AI-Powered Insights
 
 ```python
@@ -293,7 +360,7 @@ dashboard:
 - [x] Basic statistics calculator
 
 ### Week 2: Analysis Engine
-- [ ] Time-based analysis
+- [x] Time-based analysis
 - [ ] Pattern recognition algorithms
 - [ ] Drawdown and recovery analysis
 - [ ] Entry/exit quality metrics
