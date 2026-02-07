@@ -472,6 +472,327 @@ class TimeAnalysis:
         
         return "\n".join(lines)
     
+    def get_session_overlaps(self) -> List[Dict[str, Any]]:
+        """
+        Calculate and analyze overlaps between different trading sessions.
+        This is particularly important for forex trading where session overlaps
+        (like London-New York overlap) often have higher volatility and better opportunities.
+        
+        Returns:
+            List of dictionaries with overlap analysis
+        """
+        overlaps = []
+        
+        # Define session pairs to check for overlaps
+        session_pairs = [
+            ("London", "New_York"),
+            ("Asian", "London"),
+            ("London", "London_NY_Overlap"),
+            ("London_NY_Overlap", "New_York")
+        ]
+        
+        for session1, session2 in session_pairs:
+            # Get trades in each session
+            trades1 = self._session_stats[session1]["trades"]
+            trades2 = self._session_stats[session2]["trades"]
+            
+            # Find trades that occurred during both sessions (overlap)
+            overlap_trades = []
+            for trade in trades1:
+                if trade in trades2:
+                    overlap_trades.append(trade)
+            
+            if overlap_trades:
+                # Analyze overlap performance
+                total_pnl = Decimal("0.0")
+                wins = 0
+                losses = 0
+                
+                for trade in overlap_trades:
+                    total_pnl += trade.profit
+                    if trade.profit > 0:
+                        wins += 1
+                    elif trade.profit < 0:
+                        losses += 1
+                
+                total_trades = len(overlap_trades)
+                win_rate = wins / total_trades if total_trades > 0 else 0.0
+                avg_pnl = total_pnl / Decimal(str(total_trades)) if total_trades > 0 else Decimal("0.0")
+                
+                overlaps.append({
+                    "session_pair": f"{session1}-{session2}",
+                    "overlap_name": f"{session1}/{session2} Overlap",
+                    "total_trades": total_trades,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_rate": win_rate,
+                    "total_pnl": float(total_pnl),
+                    "avg_pnl": float(avg_pnl),
+                    "trades": overlap_trades
+                })
+        
+        return overlaps
+    
+    def get_best_session_overlap(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the best performing session overlap based on win rate and average PnL.
+        
+        Returns:
+            Dictionary with best overlap analysis or None if no overlaps found
+        """
+        overlaps = self.get_session_overlaps()
+        if not overlaps:
+            return None
+        
+        # Find overlap with highest combined score (win_rate * avg_pnl_positive)
+        best_overlap = None
+        best_score = -float('inf')
+        
+        for overlap in overlaps:
+            if overlap["total_trades"] >= 3:  # Minimum trades for significance
+                score = overlap["win_rate"] * max(0.1, overlap["avg_pnl"])  # Ensure positive multiplier
+                if score > best_score:
+                    best_score = score
+                    best_overlap = overlap
+        
+        return best_overlap
+    
+    def get_session_volatility_analysis(self) -> Dict[str, Any]:
+        """
+        Analyze volatility patterns by session.
+        Calculates volatility metrics like profit range, win/loss streaks, and consistency.
+        
+        Returns:
+            Dictionary with volatility analysis by session
+        """
+        volatility_by_session = {}
+        
+        for session, stats in self._session_stats.items():
+            trades = stats["trades"]
+            if len(trades) < 2:  # Need at least 2 trades for volatility calculation
+                continue
+            
+            # Calculate profit/loss values
+            profits = [float(trade.profit) for trade in trades]
+            
+            # Basic volatility metrics
+            if profits:
+                volatility_by_session[session] = {
+                    "total_trades": len(trades),
+                    "profit_range": (min(profits), max(profits)),
+                    "profit_std": statistics.stdev(profits) if len(profits) > 1 else 0.0,
+                    "profit_iqr": (sorted(profits)[len(profits)//4], sorted(profits)[3*len(profits)//4]) if len(profits) >= 4 else (0.0, 0.0),
+                    "max_winning_streak": self._calculate_max_streak(trades, positive=True),
+                    "max_losing_streak": self._calculate_max_streak(trades, positive=False),
+                    "profit_consistency": self._calculate_profit_consistency(trades),
+                    "avg_profit_per_trade": sum(profits) / len(profits),
+                    "median_profit": statistics.median(profits) if profits else 0.0
+                }
+        
+        return volatility_by_session
+    
+    def _calculate_max_streak(self, trades: List[Trade], positive: bool = True) -> int:
+        """
+        Calculate maximum consecutive winning or losing streak.
+        
+        Args:
+            trades: List of Trade objects
+            positive: True for winning streak, False for losing streak
+            
+        Returns:
+            Maximum streak length
+        """
+        max_streak = 0
+        current_streak = 0
+        
+        for trade in trades:
+            if (positive and trade.profit > 0) or (not positive and trade.profit < 0):
+                current_streak += 1
+                max_streak = max(max_streak, current_streak)
+            else:
+                current_streak = 0
+        
+        return max_streak
+    
+    def _calculate_profit_consistency(self, trades: List[Trade]) -> float:
+        """
+        Calculate profit consistency score (0-1).
+        Higher values indicate more consistent profits.
+        
+        Returns:
+            Consistency score between 0 and 1
+        """
+        if len(trades) < 2:
+            return 1.0  # Single trade is perfectly consistent
+        
+        profits = [float(trade.profit) for trade in trades]
+        mean_profit = statistics.mean(profits)
+        
+        if mean_profit == 0:
+            return 0.0
+        
+        # Calculate coefficient of variation (lower is better/more consistent)
+        std_dev = statistics.stdev(profits) if len(profits) > 1 else 0.0
+        cv = std_dev / abs(mean_profit) if mean_profit != 0 else float('inf')
+        
+        # Convert to consistency score (0-1)
+        # cv < 0.5 = very consistent, cv > – 2.0 = inconsistent
+        consistency_score = max(0.0, min(1.0, 2.0 - cv))
+        
+        return consistency_score
+    
+    def get_time_based_risk_metrics(self) -> Dict[str, Any]:
+        """
+        Calculate risk metrics based on time patterns.
+        Includes metrics like worst hour drawdown, session risk scores, etc.
+        
+        Returns:
+            Dictionary with time-based risk metrics
+        """
+        risk_metrics = {
+            "by_hour": {},
+            "by_session": {},
+            "by_weekday": {},
+            "overall": {}
+        }
+        
+        # Calculate hour-based risk metrics
+        for hour, stats in self._hour_stats.items():
+            if stats.get("total_trades", 0) >= 3:
+                trades = stats["trades"]
+                profits = [float(trade.profit) for trade in trades]
+                
+                risk_metrics["by_hour"][hour] = {
+                    "total_trades": stats["total_trades"],
+                    "win_rate": stats.get("win_rate", 0.0),
+                    "max_drawdown": self._calculate_max_drawdown(profits),
+                    "sharpe_ratio": self._calculate_sharpe_ratio(profits),
+                    "profit_factor": self._calculate_profit_factor(profits),
+                    "risk_score": self._calculate_risk_score(stats)
+                }
+        
+        # Calculate session-based risk metrics
+        for session, stats in self._session_stats.items():
+            if stats.get("total_trades", 0) >= 3:
+                trades = stats["trades"]
+                profits = [float(trade.profit) for trade in trades]
+                
+                risk_metrics["by_session"][session] = {
+                    "total_trades": stats["total_trades"],
+                    "win_rate": stats.get("win_rate", 0.0),
+                    "max_drawdown": self._calculate_max_drawdown(profits),
+                    "sharpe_ratio": self._calculate_sharpe_ratio(profits),
+                    "profit_factor": self._calculate_profit_factor(profits),
+                    "risk_score": self._calculate_risk_score(stats)
+                }
+        
+        # Calculate overall risk metrics
+        all_profits = [float(trade.profit) for trade in self._closed_trades]
+        if all_profits:
+            risk_metrics["overall"] = {
+                "total_trades": len(self._closed_trades),
+                "max_drawdown": self._calculate_max_drawdown(all_profits),
+                "sharpe_ratio": self._calculate_sharpe_ratio(all_profits),
+                "profit_factor": self._calculate_profit_factor(all_profits),
+                "avg_daily_risk": self._calculate_avg_daily_risk(),
+                "time_based_var": self._calculate_time_based_var()
+            }
+        
+        return risk_metrics
+    
+    def _calculate_max_drawdown(self, profits: List[float]) -> float:
+        """Calculate maximum drawdown from profit sequence."""
+        if not profits:
+            return 0.0
+        
+        peak = profits[0]
+        max_dd = 0.0
+        
+        for profit in profits:
+            if profit > peak:
+                peak = profit
+            dd = (peak - profit) / max(abs(peak), 0.01)  # Avoid division by zero
+            max_dd = max(max_dd, dd)
+        
+        return max_dd
+    
+    def _calculate_sharpe_ratio(self, profits: List[float], risk_free_rate: float = 0.02) -> float:
+        """Calculate Sharpe ratio (annualized)."""
+        if len(profits) < 2:
+            return 0.0
+        
+        excess_returns = [p - risk_free_rate/252 for p in profits]  # Daily risk-free rate
+        mean_return = statistics.mean(excess_returns)
+        std_return = statistics.stdev(excess_returns) if len(excess_returns) > 1 else 0.0
+        
+        if std_return == 0:
+            return 0.0
+        
+        # Annualize (assuming daily returns)
+        return (mean_return / std_return) * (252 ** 0.5)
+    
+    def _calculate_profit_factor(self, profits: List[float]) -> float:
+        """Calculate profit factor (gross profits / gross losses)."""
+        gross_profits = sum(max(p, 0) for p in profits)
+        gross_losses = abs(sum(min(p, 0) for p in profits))
+        
+        return gross_profits / gross_losses if gross_losses > 0 else float('inf')
+    
+    def _calculate_risk_score(self, stats: Dict[str, Any]) -> float:
+        """Calculate risk score (0-100, lower is better)."""
+        win_rate = stats.get("win_rate", 0.5)
+        total_trades = stats.get("total_trades", 0)
+        
+        if total_trades < 3:
+            return 50.0  # Neutral score for insufficient data
+        
+        # Risk score based on win rate and consistency
+        base_score = (1.0 - win_rate) * 50  # Lower win rate = higher risk
+        
+        # Adjust for sample size (more trades = more reliable)
+        sample_adjustment = min(20, 40 / (total_trades ** 0.5))
+        
+        return min(100, max(0, base_score + sample_adjustment))
+    
+    def _calculate_avg_daily_risk(self) -> float:
+        """Calculate average daily risk exposure."""
+        if not self._closed_trades:
+            return 0.0
+        
+        # Group trades by day
+        trades_by_day = defaultdict(list)
+        for trade in self._closed_trades:
+            if trade.close_time:
+                day_key = trade.close_time.date()
+                trades_by_day[day_key].append(trade)
+        
+        # Calculate daily PnL volatility
+        daily_pnls = []
+        for day_trades in trades_by_day.values():
+            daily_pnl = sum(float(t.profit) for t in day_trades)
+            daily_pnls.append(daily_pnl)
+        
+        if len(daily_pnls) < 2:
+            return 0.0
+        
+        return statistics.stdev(daily_pnls)
+    
+    def _calculate_time_based_var(self) -> Dict[str, float]:
+        """Calculate Value at Risk (VaR) by time period."""
+        var_results = {}
+        
+        # Calculate VaR for each hour with sufficient data
+        for hour, stats in self._hour_stats.items():
+            if stats.get("total_trades", 0) >= 10:
+                profits = [float(trade.profit) for trade in stats["trades"]]
+                profits_sorted = sorted(profits)
+                
+                # 95% VaR (5th percentile)
+                var_95_idx = int(len(profits_sorted) * 0.05)
+                var_results[f"hour_{hour}_var_95"] = profits_sorted[var_95_idx] if var_95_idx < len(profits_sorted) else 0.0
+        
+        return var_results
+    
     def recommendations(self) -> List[str]:
         """Generate trading recommendations based on time patterns."""
         recs = []
@@ -514,6 +835,24 @@ class TimeAnalysis:
         
         if best_session and best_win_rate >= 0.6:
             recs.append(f"{best_session} session shows strong performance ({best_win_rate:.1%} win rate) - focus your trading there.")
+        
+        # Analyze session overlaps (new feature)
+        best_overlap = self.get_best_session_overlap()
+        if best_overlap and best_overlap["total_trades"] >= 5 and best_overlap["win_rate"] >= 0.65:
+            recs.append(f"{best_overlap['overlap_name']} shows excellent performance ({best_overlap['win_rate']:.1%} win rate) - capitalize on overlap volatility.")
+        
+        # Add risk-based recommendations
+        risk_metrics = self.get_time_based_risk_metrics()
+        
+        # Check for high-risk hours
+        for hour, metrics in risk_metrics.get("by_hour", {}).items():
+            if metrics.get("risk_score", 50) > 70 and metrics.get("total_trades", 0) >= 5:
+                recs.append(f"Hour {hour:02d}:00 has high risk score ({metrics['risk_score']:.0f}/100) - consider reducing position size or avoiding.")
+        
+        # Check for low-risk sessions
+        for session, metrics in risk_metrics.get("by_session", {}).items():
+            if metrics.get("risk_score", 50) < 30 and metrics.get("total_trades", 0) >= 10:
+                recs.append(f"{session} session has low risk score ({metrics['risk_score']:.0f}/100) - good for larger position sizes.")
         
         return recs if recs else ["Continue current trading schedule - no strong patterns detected."]
 
@@ -598,3 +937,50 @@ if __name__ == "__main__":
     for session, stats in analyzer.by_session().items():
         if stats["total_trades"] > 0:
             print(f"  {session} - {stats['total_trades']} trades, Win Rate: {stats['win_rate']:.1%}, Avg PnL: ${stats['avg_pnl']:.2f}")
+    
+    # Test new features
+    print("\n🎯 NEW FEATURES TEST:")
+    
+    # Session overlaps
+    overlaps = analyzer.get_session_overlaps()
+    if overlaps:
+        print("\n🔀 SESSION OVERLAPS:")
+        for overlap in overlaps:
+            print(f"  {overlap['overlap_name']}: {overlap['total_trades']} trades, Win Rate: {overlap['win_rate']:.1%}, Avg PnL: ${overlap['avg_pnl']:.2f}")
+    
+    best_overlap = analyzer.get_best_session_overlap()
+    if best_overlap:
+        print(f"\n🏆 BEST SESSION OVERLAP: {best_overlap['overlap_name']}")
+        print(f"  Win Rate: {best_overlap['win_rate']:.1%}, Avg PnL: ${best_overlap['avg_pnl']:.2f}, Trades: {best_overlap['total_trades']}")
+    
+    # Volatility analysis
+    volatility = analyzer.get_session_volatility_analysis()
+    if volatility:
+        print("\n📈 VOLATILITY ANALYSIS BY SESSION:")
+        for session, metrics in volatility.items():
+            if metrics["total_trades"] >= 2:
+                print(f"  {session}: {metrics['total_trades']} trades, Profit Range: ${metrics['profit_range'][0]:.2f} to ${metrics['profit_range'][1]:.2f}")
+                print(f"    Std Dev: ${metrics['profit_std']:.2f}, Max Winning Streak: {metrics['max_winning_streak']}")
+    
+    # Risk metrics
+    risk_metrics = analyzer.get_time_based_risk_metrics()
+    if risk_metrics.get("overall"):
+        print("\n⚠️ TIME-BASED RISK METRICS:")
+        overall = risk_metrics["overall"]
+        print(f"  Overall Max Drawdown: {overall.get('max_drawdown', 0):.1%}")
+        print(f"  Sharpe Ratio: {overall.get('sharpe_ratio', 0):.2f}")
+        print(f"  Profit Factor: {overall.get('profit_factor', 0):.2f}")
+        
+        # Show high-risk hours
+        print("\n  HIGHEST RISK HOURS:")
+        hour_risks = []
+        for hour, metrics in risk_metrics.get("by_hour", {}).items():
+            if metrics.get("total_trades", 0) >= 3:
+                hour_risks.append((hour, metrics.get("risk_score", 50)))
+        
+        hour_risks.sort(key=lambda x: x[1], reverse=True)
+        for hour, risk_score in hour_risks[:3]:
+            print(f"    {hour:02d}:00 - Risk Score: {risk_score:.0f}/100")
+    
+    print("\n" + "=" * 60)
+    print("✅ All new time analysis features tested successfully!")
