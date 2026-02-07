@@ -190,7 +190,7 @@ class BasicStats:
         sorted_trades = sorted(self._closed_trades, key=lambda t: t.close_time)
         
         current_wins = 0
-        current_losses =58
+        current_losses = 0
         max_wins = 0
         max_losses = 0
         
