@@ -175,6 +175,24 @@ print(f"Max Drawdown: {stats.max_drawdown:.1%}")
 print(f"Sharpe Ratio: {stats.sharpe_ratio:.2f}")
 ```
 
+### Drawdown Analysis
+
+```python
+from analyzers import DrawdownAnalyzer
+
+dd_analyzer = DrawdownAnalyzer(trades)
+res = dd_analyzer.get_analysis()
+
+print(f"Max Drawdown: ${res.max_drawdown:,.2f} ({res.max_drawdown_pct:.2f}%)")
+print(f"Current Drawdown: ${res.current_drawdown:,.2f}")
+print(f"Average Recovery Time: {res.average_recovery_time}")
+
+# List all significant drawdowns
+for dd in res.drawdown_periods:
+    if dd.max_depth_pct > 5.0:  # Only show > 5% drawdowns
+        print(f"Drawdown: -{dd.max_depth_pct:.1f}% | Duration: {dd.duration}")
+```
+
 ### Time-Based Analysis
 
 ```python
@@ -390,7 +408,7 @@ dashboard:
 ### Week 2: Analysis Engine
 - [x] Time-based analysis
 - [ ] Pattern recognition algorithms
-- [ ] Drawdown and recovery analysis
+- [x] Drawdown and recovery analysis
 - [ ] Entry/exit quality metrics
 
 ### Week 3: Dashboard
