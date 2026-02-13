@@ -92,8 +92,11 @@ def test_basic_functionality():
     print(f"  Weekdays analyzed: {len(all_stats.by_weekday)}")
     print(f"  Sessions analyzed: {len(all_stats.by_session)}")
     print(f"  Peak hours identified: {len(all_stats.peak_hours)}")
-    
-    return True
+
+    # Basic sanity assertions for pytest (avoid returning non-None)
+    assert isinstance(summary, str) and len(summary) > 0
+    assert isinstance(recommendations, list)
+    assert all_stats is not None
 
 
 def test_edge_cases():
@@ -129,8 +132,9 @@ def test_edge_cases():
     print("\n3. Testing recommendations with minimal data:")
     recs_single = analyzer_single.recommendations()
     print(f"   Recommendations: {recs_single}")
-    
-    return True
+
+    assert isinstance(summary_empty, str)
+    assert isinstance(recs_single, list)
 
 
 def test_integration():
@@ -164,8 +168,9 @@ def test_integration():
               f"(Win Rate: {time_result.peak_hours[0]['win_rate']:.1%})")
     else:
         print(f"   No peak hours identified")
-    
-    return True
+
+    assert basic_result.closed_trades == len([t for t in sample_trades if t.is_closed])
+    assert time_result is not None
 
 
 def main():
