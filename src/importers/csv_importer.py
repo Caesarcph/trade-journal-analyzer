@@ -3,9 +3,75 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from decimal import Decimal
 import logging
-from models.trade import Trade
+try:
+    # Prefer absolute import when running from repo root (tests/dev).
+    from src.models.trade import Trade  # type: ignore
+except Exception:  # pragma: no cover
+    # Fallback for legacy usage where `src` is on PYTHONPATH.
+    from models.trade import Trade  # type: ignore
 
 logger = logging.getLogger(__name__)
+
+
+def _norm_col(name: str) -> str:
+    """Normalize a column name for best-effort matching (no extra deps)."""
+    return (
+        str(name)
+        .strip()
+        .lower()
+        .replace(" ", "")
+        .replace("_", "")
+        .replace("-", "")
+        .replace("/", "")
+        .replace(".", "")
+    )
+
+
+def _auto_column_mapping(columns: List[str]) -> Dict[str, str]:
+    """Infer a Trade-field -> CSV-header mapping from column names."""
+    aliases: Dict[str, List[str]] = {
+        "order_type": ["type", "side", "direction"],
+        "open_time": ["opentime", "entrytime", "entrydate", "dateopen"],
+        "open_price": ["openprice", "entryprice", "priceopen"],
+        "close_time": ["closetime", "exittime", "exitdate", "dateclose"],
+        "close_price": ["closeprice", "exitprice", "priceclose"],
+        "volume": ["lots", "size", "qty", "quantity"],
+        "profit": ["pnl", "pl", "netprofit"],
+        "comment": ["notes", "note", "remark"],
+    }
+
+    norm_to_original = {_norm_col(c): c for c in columns}
+    mapping: Dict[str, str] = {}
+
+    # Try direct match first, then aliases.
+    for key in [
+        "ticket",
+        "symbol",
+        "order_type",
+        "volume",
+        "open_time",
+        "open_price",
+        "close_time",
+        "close_price",
+        "sl",
+        "tp",
+        "commission",
+        "swap",
+        "profit",
+        "magic",
+        "comment",
+    ]:
+        direct = norm_to_original.get(_norm_col(key))
+        if direct:
+            mapping[key] = direct
+            continue
+        for a in aliases.get(key, []):
+            hit = norm_to_original.get(_norm_col(a))
+            if hit:
+                mapping[key] = hit
+                break
+
+    return mapping
 
 class CSVImporter:
     """
@@ -37,14 +103,11 @@ class CSVImporter:
             logger.error(f"Error reading CSV: {e}")
             return []
 
+        # If no explicit mapping is provided, try to infer one from headers.
+        if not self.column_mapping:
+            self.column_mapping = _auto_column_mapping(list(df.columns))
+
         trades = []
-        
-        # Default keys based on Trade dataclass fields
-        keys = [
-            'ticket', 'symbol', 'order_type', 'volume', 'open_time', 'open_price',
-            'close_time', 'close_price', 'sl', 'tp', 'commission', 'swap', 
-            'profit', 'magic', 'comment'
-        ]
 
         for index, row in df.iterrows():
             try:
