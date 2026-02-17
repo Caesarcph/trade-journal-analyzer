@@ -1,3 +1,26 @@
+"""
+CSV importer for trade journal analyzer.
+
+This module provides functionality to import trading data from CSV files
+with automatic column mapping and flexible data parsing.
+
+Features:
+    - Auto-detection of common column name variations
+    - Support for multiple broker CSV formats
+    - Graceful handling of missing or malformed data
+    - Conversion to standardized Trade objects
+
+Example:
+    >>> from importers import CSVImporter
+    >>> importer = CSVImporter("trades.csv")
+    >>> trades = importer.import_trades()
+    
+    >>> # With custom column mapping
+    >>> mapping = {"order_type": "Side", "profit": "PnL"}
+    >>> importer = CSVImporter("trades.csv", column_mapping=mapping)
+    >>> trades = importer.import_trades()
+"""
+
 import pandas as pd
 from typing import List, Dict, Optional
 from datetime import datetime
