@@ -115,15 +115,24 @@ class CSVImporter:
 
     def import_trades(self) -> List[Trade]:
         """
-        Reads the CSV file and converts rows to Trade objects.
+        Read a CSV/Excel file and convert rows to Trade objects.
+
+        Notes:
+            - ``.csv`` files are read with ``pandas.read_csv``.
+            - ``.xls``/``.xlsx`` files are read with ``pandas.read_excel``.
+            - Any other extension falls back to ``read_csv`` for backward compatibility.
         """
         try:
-            df = pd.read_csv(self.filepath)
+            lower_path = self.filepath.lower()
+            if lower_path.endswith((".xlsx", ".xls")):
+                df = pd.read_excel(self.filepath)
+            else:
+                df = pd.read_csv(self.filepath)
         except FileNotFoundError:
             logger.error(f"File not found: {self.filepath}")
             return []
         except Exception as e:
-            logger.error(f"Error reading CSV: {e}")
+            logger.error(f"Error reading file: {e}")
             return []
 
         # If no explicit mapping is provided, try to infer one from headers.
