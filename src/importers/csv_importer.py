@@ -96,6 +96,21 @@ def _auto_column_mapping(columns: List[str]) -> Dict[str, str]:
 
     return mapping
 
+def _normalize_order_type(raw_value: object) -> str:
+    """Normalize broker-specific order type values to BUY/SELL.
+
+    Falls back to BUY to preserve backward compatibility.
+    """
+    if raw_value is None:
+        return "BUY"
+
+    value = str(raw_value).strip().upper()
+    if value in {"BUY", "B", "LONG", "0", "OP_BUY"}:
+        return "BUY"
+    if value in {"SELL", "S", "SHORT", "1", "OP_SELL"}:
+        return "SELL"
+    return "BUY"
+
 class CSVImporter:
     """
     Imports trades from CSV files.
@@ -155,8 +170,7 @@ class CSVImporter:
                 # Required fields
                 ticket_val = get_val('ticket')
                 if ticket_val is None:
-                    # Generate a pseudo-ticket if missing? Or skip. skipping for now.
-                    # Or use index
+                    # Use a pseudo-ticket for rows without broker ticket id.
                     ticket_val = index + 1
                 
                 symbol = get_val('symbol')
@@ -173,7 +187,7 @@ class CSVImporter:
                 trade = Trade(
                     ticket=int(ticket_val),
                     symbol=str(symbol),
-                    order_type=str(get_val('order_type') or 'BUY').upper(), # Default to BUY if missing? Risky.
+                    order_type=_normalize_order_type(get_val('order_type')),
                     volume=float(get_val('volume') or 0.0),
                     open_time=open_time,
                     open_price=Decimal(str(get_val('open_price') or 0.0)),
