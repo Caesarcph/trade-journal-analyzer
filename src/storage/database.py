@@ -1,11 +1,47 @@
+"""
+SQLite database storage for trade journal analyzer.
+
+This module provides persistent storage for trade data using SQLite.
+It handles serialization/deserialization of Trade objects to/from the database.
+
+Features:
+    - Automatic schema creation
+    - Trade CRUD operations (Create, Read)
+    - Type conversion between Decimal/datetime and SQLite types
+
+Example:
+    >>> from storage.database import TradeDatabase
+    >>> from models.trade import Trade
+    >>> db = TradeDatabase("my_trades.db")
+    >>> db.save_trade(my_trade)
+    >>> trades = db.get_trades()
+"""
+
 import sqlite3
 from typing import List
 from decimal import Decimal
 from datetime import datetime
 from src.models.trade import Trade
 
+
 class TradeDatabase:
+    """
+    SQLite database interface for storing and retrieving trades.
+
+    Manages a local SQLite database for persistent trade storage.
+    Handles automatic schema creation and type conversions.
+
+    Attributes:
+        db_path: Path to the SQLite database file.
+    """
+
     def __init__(self, db_path: str = "trades.db"):
+        """
+        Initialize the database connection and create schema if needed.
+
+        Args:
+            db_path: Path to the SQLite database file. Defaults to 'trades.db'.
+        """
         self.db_path = db_path
         self._init_db()
 
