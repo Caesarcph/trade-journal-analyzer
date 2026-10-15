@@ -4,11 +4,16 @@ Test script for BasicStats analyzer.
 """
 
 import sys
-sys.path.insert(0, '.')
+from decimal import Decimal
+from pathlib import Path
+
+# Ensure the repository root (which contains src/) is importable
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from src.analyzers.basic_stats import BasicStats, create_sample_trades
 
-def main():
+def test_basic_stats_smoke():
     """Test the BasicStats analyzer."""
     print("🧪 Testing BasicStats Analyzer")
     print("=" * 50)
@@ -69,5 +74,4 @@ def main():
     print("\n✅ All tests completed!")
 
 if __name__ == "__main__":
-    from decimal import Decimal
-    main()
+    test_basic_stats_smoke()
