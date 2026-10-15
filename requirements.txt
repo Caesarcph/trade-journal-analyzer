@@ -1,11 +1,12 @@
 # Trade Journal Analyzer Requirements
 
 # Core dependencies
-python>=3.10
+# Requires Python 3.10+ (not a pip-installable package; do not list it here)
 
 # Data processing
 pandas>=2.0.0
 numpy>=1.24.0
+openpyxl>=3.1.0  # needed by pandas.read_excel for .xlsx import
 
 # Web framework
 streamlit>=1.30.0
