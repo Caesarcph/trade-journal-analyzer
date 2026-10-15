@@ -7,8 +7,11 @@ import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
+from pathlib import Path
 
-sys.path.insert(0, '.')
+# Ensure the repository root (which contains src/) is importable
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from src.models.trade import Trade
 from src.analyzers.drawdown import DrawdownAnalyzer
@@ -82,7 +85,7 @@ def create_drawdown_scenario_trades() -> list[Trade]:
         
     return trades
 
-def main():
+def test_drawdown_scenario():
     """Test the DrawdownAnalyzer."""
     print("🧪 Testing DrawdownAnalyzer")
     print("=" * 50)
@@ -136,4 +139,4 @@ def main():
     print("\n✅ All tests passed!")
 
 if __name__ == "__main__":
-    main()
+    test_drawdown_scenario()

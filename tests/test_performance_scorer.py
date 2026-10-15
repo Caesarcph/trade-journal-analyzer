@@ -5,7 +5,8 @@ Test suite for PerformanceScorer module.
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure the repository root (which contains src/) is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.analyzers.performance_scorer import PerformanceScorer, create_sample_usage
 from src.models.trade import Trade
