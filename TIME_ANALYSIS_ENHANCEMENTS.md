@@ -72,7 +72,7 @@ Enhanced the time analysis module in trade-journal-analyzer with advanced featur
 
 ### Basic Usage
 ```python
-from analyzers import TimeAnalysis
+from src.analyzers import TimeAnalysis
 
 time_analyzer = TimeAnalysis(trades)
 

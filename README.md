@@ -1,42 +1,67 @@
 # 📔 TradeJournal Analyzer
 
-> Intelligent trading journal analyzer that extracts insights from your trade history, identifies patterns, and suggests improvements.
+> Trading journal analyzer that computes statistics from your trade history, highlights time-based patterns, and suggests improvements.
 
+[![CI](https://github.com/Caesarcph/trade-journal-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/Caesarcph/trade-journal-analyzer/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red.svg)](https://streamlit.io)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+## 📌 Status
+
+**Early-stage Python library. There is no CLI and no dashboard yet; you use it from Python.**
+
+What works today:
+- `Trade` data model and SQLite storage (`TradeDatabase`: save / load all trades)
+- CSV / Excel (`.xlsx`) import with automatic column-name matching (e.g. `Side`, `Lots`, `PnL`, `Open Time`)
+- Analyzers: basic statistics, drawdown analysis, time-based patterns (hour, weekday, month, session, session overlap,
+  seasonality) and a rule-based performance scorer / trade grader
+- 18 pytest tests, run in CI
+
+Planned (not implemented yet): MT4/MT5 import, broker statement import (Interactive Brokers, TD Ameritrade),
+MT5 auto-sync, pattern recognition, LLM insights, Streamlit dashboard, export, YAML configuration.
+See [ROADMAP.md](ROADMAP.md).
 
 ## 🎯 Why This Tool?
 
 Most traders keep journals but never analyze them properly. This tool:
 
-- 📊 **Auto-imports** trades from MT4/MT5, brokers, or CSV
-- 🔍 **Finds patterns** in your winning and losing trades
-- 🧠 **AI-powered insights** using LLM analysis
-- 📈 **Visualizes** your trading performance over time
+- 📊 **Imports** trades from CSV/Excel (MT4/MT5 and broker imports planned)
+- 🔍 **Finds time-based patterns** in your winning and losing trades
+- 🏅 **Scores and grades** your performance with simple, transparent rules
+- 🧠 **AI-powered insights** using LLM analysis (planned)
+- 📈 **Visualizes** your trading performance over time (planned dashboard)
 
 ## ✨ Features
 
 ### Import & Sync
-- 📥 Import from MT4/MT5 history
-- 📥 Import from broker statements (Interactive Brokers, TD Ameritrade)
-- 📥 CSV/Excel import with smart column mapping
-- 🔄 Auto-sync with MT5 (live updates)
+- ✅ CSV/Excel import with automatic column mapping (header aliases) or an explicit `column_mapping`
+- ✅ Order-type normalization (`BUY`/`SELL`, `LONG`/`SHORT`, `0`/`1`, `OP_BUY`/`OP_SELL`)
+- 🗓️ Import from MT4/MT5 history (planned)
+- 🗓️ Import from broker statements (Interactive Brokers, TD Ameritrade) (planned)
+- 🗓️ Auto-sync with MT5 (live updates) (planned)
 
 ### Analytics
-- 📊 Win rate by symbol, timeframe, day of week, time of day
-- 💰 Average R:R ratio and expectancy
-- 📉 Drawdown analysis and recovery patterns
-- 🎯 Entry accuracy (how close to optimal entry?)
-- ⏱️ Holding time analysis
+- ✅ Win rate, profit factor, expectancy, average win/loss, largest win/loss, consecutive wins/losses
+- ✅ Net profit by symbol, profit per trading day
+- ✅ Win rate / PnL by hour, day of week, month, trading session, session overlap and time period
+- ✅ Drawdown analysis: max / current / average drawdown, drawdown periods, recovery time
+- ✅ Holding time analysis (average duration of all, winning and losing trades)
+- ✅ Average win / average loss ratio (used in the performance score)
+- 🗓️ Win rate by timeframe (planned; the `Trade` model has no timeframe field yet)
+- 🗓️ Entry accuracy (how close to optimal entry?) (planned)
+
+### Performance Scoring
+- ✅ Overall score and letter grade (A–F) from win rate, risk management and profit factor
+- ✅ Per-trade grades with feedback, grade distribution, text report
+- ✅ Rule-based strengths / weaknesses / recommendations
 
 ### Pattern Recognition
-- 🔮 What conditions lead to your best trades?
-- ⚠️ What patterns precede losing streaks?
-- 📆 Time-based performance patterns
-- 🎭 Emotional pattern detection (revenge trades, FOMO)
+- ✅ Time-based performance patterns and text recommendations (`TimeAnalysis.recommendations()`)
+- 🗓️ What conditions lead to your best trades? (planned)
+- 🗓️ What patterns precede losing streaks? (planned)
+- 🗓️ Emotional pattern detection (revenge trades, FOMO) (planned)
 
-### AI Insights
+### AI Insights (planned)
 - 🤖 LLM-powered trade review
 - 💡 Personalized improvement suggestions
 - 📝 Automated trade journaling prompts
@@ -45,37 +70,33 @@ Most traders keep journals but never analyze them properly. This tool:
 
 ```
 trade-journal-analyzer/
-├── importers/
-│   ├── mt5_importer.py       # MetaTrader 5 history
-│   ├── mt4_importer.py       # MetaTrader 4 history  
-│   ├── ib_importer.py        # Interactive Brokers
-│   ├── csv_importer.py       # Generic CSV
-│   └── mapper.py             # Smart column mapping
-├── analyzers/
-│   ├── basic_stats.py        # Win rate, PnL, etc.
-│   ├── time_analysis.py      # Time-based patterns
-│   ├── pattern_finder.py     # Trade pattern recognition
-│   ├── drawdown.py           # Drawdown analysis
-│   └── llm_analyzer.py       # AI-powered insights
-├── dashboard/
-│   ├── app.py                # Main Streamlit app
-│   ├── pages/
-│   │   ├── overview.py       # Dashboard home
-│   │   ├── trades.py         # Trade list & details
-│   │   ├── patterns.py       # Pattern analysis
-│   │   └── insights.py       # AI insights
-│   └── components/
-│       ├── charts.py         # Plotly charts
-│       └── filters.py        # Filter widgets
-├── models/
-│   ├── trade.py              # Trade data model
-│   └── journal_entry.py      # Journal entry model
-├── storage/
-│   ├── database.py           # SQLite storage
-│   └── export.py             # Export functionality
-├── config/
-└── tests/
+├── src/
+│   ├── importers/
+│   │   └── csv_importer.py       # CSV / Excel import with column auto-mapping
+│   ├── analyzers/
+│   │   ├── basic_stats.py        # Win rate, PnL, expectancy, etc.
+│   │   ├── time_analysis.py      # Time-based patterns, sessions, overlaps, seasonality
+│   │   ├── drawdown.py           # Drawdown analysis
+│   │   └── performance_scorer.py # Overall score, trade grades, report
+│   ├── models/
+│   │   └── trade.py              # Trade data model
+│   ├── storage/
+│   │   └── database.py           # SQLite storage
+│   ├── config/                   # Empty placeholder package
+│   └── dashboard/                # Empty placeholder package (dashboard planned)
+├── tests/                        # pytest suite
+├── .github/workflows/ci.yml      # CI: pytest on Python 3.11
+├── pytest.ini
+├── requirements.txt
+├── TIME_ANALYSIS_ENHANCEMENTS.md # Notes on the time-analysis features
+├── ROADMAP.md
+├── CONTRIBUTING.md
+└── LICENSE
 ```
+
+Planned modules (not created yet): `importers/mt5_importer.py`, `mt4_importer.py`, `ib_importer.py`,
+`analyzers/pattern_finder.py`, `llm_analyzer.py`, `dashboard/app.py` and pages, `models/journal_entry.py`,
+`storage/export.py`, `config/settings.yaml`.
 
 ## 🚀 Quick Start
 
@@ -85,85 +106,52 @@ trade-journal-analyzer/
 git clone https://github.com/Caesarcph/trade-journal-analyzer.git
 cd trade-journal-analyzer
 pip install -r requirements.txt
+
+# Run the tests
+pytest
 ```
 
 ### Import Your Trades
 
-```bash
-# From MT5
-python -m importers.mt5_importer --account 12345678
+There is no command-line interface yet. Run Python from the repository root:
 
-# From CSV
-python -m importers.csv_importer trades.csv
+```python
+from src.importers import CSVImporter
+from src.storage.database import TradeDatabase
 
-# From Interactive Brokers
-python -m importers.ib_importer statement.xml
+# Column names are matched automatically (e.g. "Ticket", "Symbol", "Side", "Lots",
+# "Open Time", "Open Price", "Close Time", "Close Price", "PnL").
+trades = CSVImporter("trades.csv").import_trades()      # .xlsx works too
+
+# Or map columns explicitly: {Trade field: column name in your file}.
+# An explicit mapping turns auto-detection off; unmapped fields must be named exactly
+# like the Trade fields (ticket, symbol, open_time, open_price, ...).
+trades = CSVImporter("trades.csv", column_mapping={"order_type": "Side", "profit": "PnL"}).import_trades()
+
+# Optional: persist to SQLite
+db = TradeDatabase("trades.db")
+for t in trades:
+    db.save_trade(t)
+trades = db.get_trades()
 ```
 
-### Launch Dashboard
+Rows without `symbol` or `open_time` are skipped. MT4/MT5 and Interactive Brokers importers are planned.
 
-```bash
-streamlit run dashboard/app.py
-```
+### Launch Dashboard (planned)
 
-## 📊 Dashboard Preview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    TRADE JOURNAL ANALYZER                        │
-│                                                                  │
-│  Date Range: [Jan 1, 2024] to [Dec 15, 2024]  Symbols: [All ▼]  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │  Total   │  │   Win    │  │  Profit  │  │   Avg    │        │
-│  │  Trades  │  │   Rate   │  │  Factor  │  │   R:R    │        │
-│  │   247    │  │  58.3%   │  │   1.82   │  │   1.65   │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-│                                                                  │
-│  [Equity Curve Chart]                                           │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │    📈                                              ╱     │   │
-│  │         ╱╲    ╱╲                              ╱╲╱       │   │
-│  │    ╱╲╱╲╱  ╲╱╲╱  ╲╱╲      ╱╲                ╱            │   │
-│  │   ╱              ╲╱╲╱╲╱╲╱  ╲╱╲        ╱╲╱               │   │
-│  │ ╱                              ╲    ╱                    │   │
-│  │╱                                ╲╱╲╱                     │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  Jan     Mar     May      Jul      Sep      Nov               │
-│                                                                  │
-│  📊 PERFORMANCE BY SYMBOL           📅 PERFORMANCE BY DAY       │
-│  ┌───────────────────────┐         ┌───────────────────────┐   │
-│  │ EURUSD  ████████ 62%  │         │ Mon  ████████ +$2,340 │   │
-│  │ GBPUSD  ██████   54%  │         │ Tue  ██████   +$1,230 │   │
-│  │ USDJPY  ███████  58%  │         │ Wed  ████████ +$2,100 │   │
-│  │ XAUUSD  █████    51%  │         │ Thu  ███      +$450   │   │
-│  └───────────────────────┘         │ Fri  ██       -$320   │   │
-│                                    └───────────────────────┘   │
-├─────────────────────────────────────────────────────────────────┤
-│  🤖 AI INSIGHTS                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ • Your win rate drops 15% after a losing streak of 3+    │   │
-│  │   trades. Consider taking a break after consecutive      │   │
-│  │   losses.                                                │   │
-│  │                                                          │   │
-│  │ • Friday trades have negative expectancy (-$64/trade).   │   │
-│  │   Consider avoiding trading on Fridays.                  │   │
-│  │                                                          │   │
-│  │ • Your best entries come within 30 mins of London open.  │   │
-│  │   Focus on this session for higher quality setups.       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
+A Streamlit dashboard is planned but not implemented yet (`src/dashboard/` is an empty package).
 
 ## 📈 Analytics Deep Dive
+
+All examples assume `trades` is a list of `Trade` objects (see above).
 
 ### Basic Statistics
 
 ```python
-from analyzers import BasicStats
+from src.analyzers import BasicStats
 
-stats = BasicStats(trades)
+analyzer = BasicStats(trades)
+stats = analyzer.get_stats()
 
 print(f"Total Trades: {stats.total_trades}")
 print(f"Win Rate: {stats.win_rate:.1%}")
@@ -171,16 +159,21 @@ print(f"Profit Factor: {stats.profit_factor:.2f}")
 print(f"Average Win: ${stats.avg_win:.2f}")
 print(f"Average Loss: ${stats.avg_loss:.2f}")
 print(f"Expectancy: ${stats.expectancy:.2f}/trade")
-print(f"Max Drawdown: {stats.max_drawdown:.1%}")
-print(f"Sharpe Ratio: {stats.sharpe_ratio:.2f}")
+print(f"Max Drawdown: {stats.max_drawdown:.1f}% (${stats.max_drawdown_amount:.2f})")
+print(f"Profit by symbol: {stats.profit_per_trade}")
+print(f"Avg holding time: {stats.avg_trade_duration / 3600:.1f} h")
+
+print(analyzer.summary())    # formatted text summary
+analyzer.to_dict()           # dict version
 ```
 
 ### Drawdown Analysis
 
 ```python
-from analyzers import DrawdownAnalyzer
+from decimal import Decimal
+from src.analyzers import DrawdownAnalyzer
 
-dd_analyzer = DrawdownAnalyzer(trades)
+dd_analyzer = DrawdownAnalyzer(trades, initial_balance=Decimal("10000"))
 res = dd_analyzer.get_analysis()
 
 print(f"Max Drawdown: ${res.max_drawdown:,.2f} ({res.max_drawdown_pct:.2f}%)")
@@ -195,220 +188,110 @@ for dd in res.drawdown_periods:
 
 ### Time-Based Analysis
 
-```python
-from analyzers import TimeAnalysis
-
-time_stats = TimeAnalysis(trades)
-
-# Performance by day of week
-day_perf = time_stats.by_day_of_week()
-# {'Monday': {'win_rate': 0.62, 'pnl': 2340}, ...}
-
-# Performance by hour
-hour_perf = time_stats.by_hour()
-# Best trading hours identified
-
-# Performance by session
-session_perf = time_stats.by_session()
-# {'Asian': {...}, 'London': {...}, 'New York': {...}}
-```
-
-### Pattern Recognition
+Trades are bucketed by **close time**. Sessions are defined in UTC: Asian 00–08, London 08–16, New_York 13–21,
+London_NY_Overlap 13–16 (a trade can count in more than one session).
 
 ```python
-from analyzers import PatternFinder
-
-patterns = PatternFinder(trades)
-
-# What leads to winning trades?
-winning_patterns = patterns.find_winning_conditions()
-# [
-#   "Trades after 2+ winning streak: 68% win rate",
-#   "Trades during London-NY overlap: 64% win rate",
-#   "Trades with R:R > 2: 71% profitable when target hit"
-# ]
-
-# What leads to losing trades?
-losing_patterns = patterns.find_losing_conditions()
-# [
-#   "Trades after 3+ losing streak: 42% win rate (revenge trading?)",
-#   "Friday afternoon trades: 38% win rate",
-#   "Trades held over weekend: 35% win rate"
-# ]
-
-# Emotional patterns
-emotional = patterns.detect_emotional_trading()
-# {
-#   "revenge_trades": 12,
-#   "fomo_trades": 8,
-#   "overtrading_days": 5
-# }
-```
-
-### Time-Based Analysis
-
-```python
-from analyzers import TimeAnalysis
+from src.analyzers import TimeAnalysis
 
 time_analyzer = TimeAnalysis(trades)
 
-# Performance by day of week
+# Performance by day of week (keys 0=Monday ... 6=Sunday)
 day_perf = time_analyzer.by_day_of_week()
-# {'Monday': {'win_rate': 0.62, 'pnl': 2340, 'avg_pnl': 58.5}, ...}
+# {0: {'name': 'Monday', 'total_trades': 1, 'wins': 1, 'losses': 0, 'win_rate': 1.0,
+#      'loss_rate': 0.0, 'total_pnl': 50.0, 'avg_pnl': 50.0}, ...}
 
-# Performance by hour
+# Performance by hour (0-23), month (1-12), session and time period
 hour_perf = time_analyzer.by_hour()
-# Best trading hours identified
-
-# Performance by trading session
+month_perf = time_analyzer.by_month()
 session_perf = time_analyzer.by_session()
-# {'Asian': {'win_rate': 0.55, 'total_trades': 20, 'avg_pnl': 25.5},
-#  'London': {'win_rate': 0.68, 'total_trades': 45, 'avg_pnl': 42.3},
-#  'New_York': {'win_rate': 0.61, 'total_trades': 35, 'avg_pnl': 38.7},
-#  'London_NY_Overlap': {'win_rate': 0.72, 'total_trades': 28, 'avg_pnl': 51.2}}
-
-# Performance by time period
+# {'London': {'total_trades': 3, 'win_rate': 0.67, 'avg_pnl': 33.33, ...},
+#  'New_York': {...}, 'London_NY_Overlap': {...}}
 period_perf = time_analyzer.by_period()
-# {'pre_market': {...}, 'market_open': {...}, 'midday': {...}, ...}
+# {'market_open': {...}, 'midday': {...}, 'afternoon': {...}, ...}
 
-# Get peak performance hours
+# Best / worst hours (need >= 3 trades per hour) and weekdays (>= 5 trades per weekday);
+# empty when no bucket has enough trades
 peak_hours = time_analyzer.get_peak_hours(limit=5)
-# [{'hour': 14, 'win_rate': 0.71, 'avg_pnl': 27.14, 'total_trades': 7}, ...]
-
-# Get worst performing hours
 worst_hours = time_analyzer.get_worst_hours(limit=3)
-# [{'hour': 10, 'win_rate': 0.0, 'avg_pnl': -30.0, 'total_trades': 1}, ...]
-
-# Get best/worst weekdays
 best_weekday = time_analyzer.get_best_weekday()
-# {'weekday': 1, 'name': 'Tuesday', 'win_rate': 0.68, 'avg_pnl': 42.5, ...}
 worst_weekday = time_analyzer.get_worst_weekday()
-# {'weekday': 4, 'name': 'Friday', 'win_rate': 0.45, 'avg_pnl': -12.3, ...}
 
-# Get recommendations based on time patterns
-recommendations = time_analyzer.recommendations()
-# ["Focus on trading during 14:00 - 71.4% win rate across 7 trades",
-#  "Avoid trading during 10:00 - only 0.0% win rate",
-#  "Tuesday is your strongest day - schedule important trades then",
-#  "London/New_York Overlap shows excellent performance - capitalize on overlap volatility"]
-
-# Get session overlap analysis (new feature!)
+# Session overlaps
 overlaps = time_analyzer.get_session_overlaps()
-# [
-#   {"session_pair": "London-New_York", "overlap_name": "London/New_York Overlap",
-#    "total_trades": — 15, "win_rate": 0.73, "avg_pnl": 45.20}
-# ]
+# [{'session_pair': 'London-New_York', 'overlap_name': 'London/New_York Overlap',
+#   'overlap_window_utc': ('13:00', '16:00'), 'total_trades': 2, 'win_rate': 0.5, 'avg_pnl': 10.0, ...}]
+best_overlap = time_analyzer.get_best_session_overlap()
 
-# Get volatility analysis by session
+# Profit dispersion and streaks per session
 volatility = time_analyzer.get_session_volatility_analysis()
-# {
-#   "London": {"total_trades": 45, "profit_range": (-50.0, 120.0),
-#              "profit_std": 35.20, "max_winning_streak": 5},
-#   "New_York": {"total_trades": 35, "profit_range": (-30.0,プ 85.0),
-#                "profit_std": 28.50, "max_winning_streak": 4}
-# }
+# {'London': {'total_trades': 3, 'profit_range': (-30.0, 80.0), 'profit_std': 56.86,
+#             'max_winning_streak': 1, 'max_losing_streak': 1, ...}, ...}
 
-# Get time-based risk metrics
+# Time-based risk metrics
 risk_metrics = time_analyzer.get_time_based_risk_metrics()
-# {
-#   "overall": {"max_drawdown": 0.25, "sharpe_ratio": 1.85, "profit_factor": 2.10},
-#   "by_hour": {"14": {"risk_score": 25, "sharpe_ratio": 2.30}},
-#   "by_session": {"London": {"risk_score": 28, "profit_factor": 2.45}}
-# }
+# keys: 'overall', 'by_hour', 'by_session', 'by_weekday'
+# risk_metrics['overall'] -> {'total_trades', 'max_drawdown', 'sharpe_ratio', 'profit_factor', ...}
 
-# Get complete analysis summary
+# Seasonality
+seasonal = time_analyzer.get_seasonal_patterns()   # 'quarterly', 'monthly', 'yearly', 'seasonal_cycles'
+seasonal_recs = time_analyzer.get_seasonal_recommendations()
+
+# Text recommendations and a formatted summary
+print(time_analyzer.recommendations())
 print(time_analyzer.summary())
-# "⏰ TIME-BASED PATTERN ANALYSIS
-#  ==================================================
-#  Total Closed Trades Analyzed: 247
-#  
-#  🏆 BEST PERFORMING HOURS:
-#   14:00 - Win Rate: 71.4% | Avg PnL: $27.14
-#  
-#  ⚠️ WORST PERFORMING HOURS:
-#   10:00 - Win Rate: 0.0% | Avg PnL: $-30.00
-#  
-#  📅 DAY OF WEEK PERFORMANCE:
-#    Best: Tuesday - Win Rate: 68.0% | Avg PnL: $42.50
-#    Worst: Friday - Win Rate: 45.0% | Avg PnL: $-12.30
-#  
-#  🌍 TRADING SESSIONS:
-#    London: 45 trades, Win Rate: 68.0%, Avg PnL: $42.30
-#    New_York: 35 trades, Win Rate: 61.0%, Avg PnL: $38.70
-#  
-#  🔀 SESSION OVERLAPS:
-#    London/New_York Overlap: 15 trades, Win Rate: 73.0%, Avg PnL: $45.20"
 ```
 
-### AI-Powered Insights
+### Performance Scoring
 
 ```python
-from analyzers import LLMAnalyzer
+from src.analyzers import PerformanceScorer
 
-llm = LLMAnalyzer(model="claude-sonnet-4-20250514")
+scorer = PerformanceScorer(trades)
 
-# Get personalized insights
-insights = llm.analyze_journal(trades, depth="comprehensive")
+score = scorer.calculate_overall_score()
+print(score.overall_score, score.letter_grade)
+print(score.strengths, score.weaknesses, score.recommendations)
 
-print(insights.summary)
-# "Your trading shows a clear edge in trend-following setups during
-#  the London session. However, performance degrades significantly 
-#  on Fridays and after losing streaks..."
+grade = scorer.grade_individual_trade(trades[0])
+print(grade.grade, grade.score, grade.feedback)
 
-print(insights.strengths)
-# ["Strong risk management (avg loss < avg win * 0.5)",
-#  "Excellent entry timing during London open",
-#  "Consistent position sizing"]
-
-print(insights.improvements)
-# ["Consider avoiding Friday trades (-$320 net)",
-#  "Implement a 2-hour break after 3 consecutive losses",
-#  "Your XAUUSD edge is weak - consider paper trading only"]
-
-print(insights.action_items)
-# ["Create a pre-trade checklist for Friday trades",
-#  "Set a daily loss limit of 3% to prevent overtrading",
-#  "Review and update your XAUUSD strategy"]
+print(scorer.grade_distribution())   # {'A': {'count': 2, 'pct': 0.5}, ...}
+print(scorer.generate_performance_report())
 ```
 
-## 🔧 Configuration
+### Pattern Recognition (planned)
 
-```yaml
-# config/settings.yaml
+A `PatternFinder` analyzer is planned but does not exist yet. Intended questions:
+- What leads to winning trades? (e.g. win rate after winning streaks, during session overlaps)
+- What leads to losing trades? (e.g. after losing streaks, Friday afternoons, weekend holds)
+- Emotional patterns: revenge trades, FOMO trades, overtrading days
 
-import:
-  default_currency: USD
-  timezone: UTC
-  auto_sync_mt5: true
-  sync_interval_minutes: 5
+Time-based patterns are already available through `TimeAnalysis` above.
 
-analysis:
-  min_trades_for_pattern: 20
-  lookback_periods: [7, 30, 90, 365]
-  
-llm:
-  provider: anthropic
-  model: claude-sonnet-4-20250514
-  analysis_depth: standard  # quick, standard, comprehensive
-  
-dashboard:
-  theme: dark
-  default_date_range: 90  # days
-  refresh_interval: 60  # seconds
-```
+### AI-Powered Insights (planned)
+
+An `LLMAnalyzer` is planned but not implemented: it would send journal statistics to an LLM and return a summary,
+strengths, improvement suggestions and action items.
+
+## 🔧 Configuration (planned)
+
+There is no configuration file yet; `src/config/` is an empty package. A planned `config/settings.yaml` would cover
+import defaults (currency, timezone, MT5 auto-sync), analysis parameters, LLM provider/model and dashboard settings.
 
 ## 🛠️ Development Roadmap
 
 ### Week 1: Core Infrastructure
 - [x] Trade data model and database
 - [ ] MT5/MT4 importers
-- [ ] CSV importer with smart mapping
+- [x] CSV importer with column auto-mapping
 - [x] Basic statistics calculator
 
 ### Week 2: Analysis Engine
 - [x] Time-based analysis
 - [ ] Pattern recognition algorithms
 - [x] Drawdown and recovery analysis
+- [x] Performance scoring and trade grading
 - [ ] Entry/exit quality metrics
 
 ### Week 3: Dashboard
@@ -427,35 +310,26 @@ dashboard:
 - [ ] Additional broker imports
 - [ ] Export functionality
 - [ ] Documentation
-- [ ] Unit tests
+- [x] Unit tests (initial pytest suite + CI)
 
-## 📤 Export Options
+Details in [ROADMAP.md](ROADMAP.md).
 
-```python
-from storage import Exporter
+## 📤 Export Options (planned)
 
-exporter = Exporter(trades)
-
-# Export to various formats
-exporter.to_csv("trades_export.csv")
-exporter.to_excel("trades_export.xlsx")
-exporter.to_pdf_report("monthly_report.pdf")
-
-# Export insights
-exporter.insights_to_markdown("insights.md")
-```
+Not implemented yet. Planned: export trades to CSV / Excel, a PDF report, and insights to Markdown.
+Today you can persist trades with `TradeDatabase` (SQLite).
 
 ## 🤝 Contributing
 
-Contributions welcome! Priority areas:
-1. Additional broker importers
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md). Priority areas:
+1. MT4/MT5 and broker importers
 2. New analysis metrics
-3. Dashboard improvements
-4. LLM prompt optimization
+3. Dashboard
+4. LLM integration
 
 ## 📄 License
 
-MIT License - Analyze your trades freely!
+[MIT License](LICENSE) - Analyze your trades freely!
 
 ## ⚠️ Disclaimer
 
